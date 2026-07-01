@@ -1,0 +1,95 @@
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 64px);
+  position: relative;
+  padding: var(--space-xl);
+}
+
+.auth-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+.auth-orb-1 {
+  width: 400px;
+  height: 400px;
+  background: var(--color-teal);
+  top: -100px;
+  right: -50px;
+  opacity: 0.08;
+}
+
+.auth-orb-2 {
+  width: 350px;
+  height: 350px;
+  background: var(--color-violet);
+  bottom: -50px;
+  left: -50px;
+  opacity: 0.06;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.auth-header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.auth-header p {
+  color: var(--color-text-muted);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.input-icon-wrapper {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.input-with-icon {
+  padding-left: 40px !important;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: var(--space-xl);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.auth-footer a {
+  color: var(--color-teal);
+  font-weight: 600;
+}

@@ -1,0 +1,104 @@
+.planner-page {
+  padding-top: var(--space-2xl);
+  padding-bottom: var(--space-3xl);
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+}
+
+.planner-card {
+  width: 100%;
+  padding: var(--space-2xl) !important;
+}
+
+.planner-progress {
+  margin-bottom: var(--space-2xl);
+}
+
+.progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-sm);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  transition: width 0.4s ease;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.progress-steps .active {
+  color: var(--color-teal);
+}
+
+.step-header {
+  margin-bottom: var(--space-xl);
+}
+
+.step-header h2 {
+  font-size: 2rem;
+  margin-bottom: var(--space-xs);
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.planner-content {
+  min-height: 250px;
+}
+
+.preferences-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.pref-btn {
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pref-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.pref-btn.selected {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--color-violet);
+  color: white;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+}
+
+.planner-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 640px) {
+  .planner-card {
+    padding: var(--space-lg) !important;
+  }
+}

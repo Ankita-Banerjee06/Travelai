@@ -7,7 +7,13 @@ settings = get_settings()
 
 # Neon DB requires SSL; add sslmode=require if not already in the URL
 database_url = settings.DATABASE_URL
-if database_url and "sslmode" not in database_url:
+if not database_url:
+    raise RuntimeError(
+        "DATABASE_URL is not set! "
+        "Add it as a Repository Secret in HF Spaces Settings, e.g.: "
+        "postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require"
+    )
+if "sslmode" not in database_url:
     separator = "&" if "?" in database_url else "?"
     database_url = f"{database_url}{separator}sslmode=require"
 

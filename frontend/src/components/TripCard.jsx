@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Calendar, DollarSign, Users, Trash2, Eye } from 'lucide-react';
+import { getDestinationThumbUrl } from '../utils/destinationImage';
 import './TripCard.css';
 
 export default function TripCard({ trip, onDelete }) {
@@ -31,12 +32,19 @@ export default function TripCard({ trip, onDelete }) {
       transition={{ duration: 0.3 }}
       layout
     >
+      <div
+        className="trip-card-photo"
+        style={{ backgroundImage: `url(${getDestinationThumbUrl(trip.destination)})` }}
+      >
+        <div className="trip-card-photo-scrim"></div>
+        <span className="badge badge-teal trip-card-duration">{getDuration()}</span>
+      </div>
+
       <div className="trip-card-header">
         <div className="trip-destination">
           <MapPin size={18} className="trip-icon" />
           <h3>{trip.destination}</h3>
         </div>
-        <span className="badge badge-teal">{getDuration()}</span>
       </div>
 
       <div className="trip-card-details">

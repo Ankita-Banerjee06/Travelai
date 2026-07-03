@@ -64,6 +64,14 @@ export default function TripPlanner() {
       return;
     }
 
+    if (step === 1) {
+      const days = Math.round((new Date(formData.end_date) - new Date(formData.start_date)) / 86400000) + 1;
+      if (days > 21) {
+        setError("Trips longer than 21 days aren't supported yet. Please choose a shorter date range.");
+        return;
+      }
+    }
+
     setError('');
     setStep((prev) => prev + 1);
   };

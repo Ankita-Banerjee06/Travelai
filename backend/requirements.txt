@@ -4,6 +4,7 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 groq
+httpx
 pydantic[email]
 pydantic-settings
 python-jose[cryptography]

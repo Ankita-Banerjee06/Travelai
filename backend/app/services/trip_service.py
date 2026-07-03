@@ -2,6 +2,72 @@ from sqlalchemy.orm import Session
 from app.models.trip import Trip, Itinerary, BudgetBreakdown
 
 
+def _build_itinerary_rows(trip_id: int, itinerary: list) -> list[Itinerary]:
+    """Convert AI-generated itinerary entries into Itinerary rows, skipping
+    any malformed entries instead of crashing the whole request."""
+    rows = []
+    if not isinstance(itinerary, list):
+        return rows
+
+    next_day_number = 1
+    for day in itinerary:
+        if not isinstance(day, dict):
+            continue
+
+        day_number = day.get("day_number")
+        if not isinstance(day_number, int):
+            day_number = next_day_number
+        next_day_number = day_number + 1
+
+        title = day.get("title") or f"Day {day_number}"
+
+        activities = day.get("activities", [])
+        if not isinstance(activities, list):
+            activities = []
+        activities = [a for a in activities if isinstance(a, dict)]
+
+        estimated_cost = day.get("estimated_cost", 0.0)
+        if not isinstance(estimated_cost, (int, float)):
+            estimated_cost = 0.0
+
+        rows.append(Itinerary(
+            trip_id=trip_id,
+            day_number=day_number,
+            title=title,
+            activities=activities,
+            estimated_cost=estimated_cost,
+        ))
+    return rows
+
+
+def _build_budget_rows(trip_id: int, budget_breakdown: list) -> list[BudgetBreakdown]:
+    """Convert AI-generated budget entries into BudgetBreakdown rows,
+    skipping any malformed entries instead of crashing the whole request."""
+    rows = []
+    if not isinstance(budget_breakdown, list):
+        return rows
+
+    for item in budget_breakdown:
+        if not isinstance(item, dict):
+            continue
+
+        category = item.get("category")
+        if not category:
+            continue
+
+        amount = item.get("amount", 0.0)
+        if not isinstance(amount, (int, float)):
+            amount = 0.0
+
+        rows.append(BudgetBreakdown(
+            trip_id=trip_id,
+            category=category,
+            amount=amount,
+            notes=item.get("notes", "") or "",
+        ))
+    return rows
+
+
 def create_trip_with_itinerary(db: Session, user_id: int, trip_data: dict, ai_response: dict) -> Trip:
     """Create a trip record with its generated itinerary and budget breakdown."""
     trip = Trip(
@@ -17,25 +83,10 @@ def create_trip_with_itinerary(db: Session, user_id: int, trip_data: dict, ai_re
     db.add(trip)
     db.flush()
 
-    # Add itinerary days
-    for day in ai_response.get("itinerary", []):
-        itinerary_day = Itinerary(
-            trip_id=trip.id,
-            day_number=day["day_number"],
-            title=day["title"],
-            activities=day.get("activities", []),
-            estimated_cost=day.get("estimated_cost", 0.0),
-        )
+    for itinerary_day in _build_itinerary_rows(trip.id, ai_response.get("itinerary", [])):
         db.add(itinerary_day)
 
-    # Add budget breakdown
-    for item in ai_response.get("budget_breakdown", []):
-        budget_item = BudgetBreakdown(
-            trip_id=trip.id,
-            category=item["category"],
-            amount=item["amount"],
-            notes=item.get("notes", ""),
-        )
+    for budget_item in _build_budget_rows(trip.id, ai_response.get("budget_breakdown", [])):
         db.add(budget_item)
 
     db.commit()
@@ -69,25 +120,10 @@ def update_trip_itinerary(db: Session, trip: Trip, ai_response: dict) -> Trip:
     db.query(Itinerary).filter(Itinerary.trip_id == trip.id).delete()
     db.query(BudgetBreakdown).filter(BudgetBreakdown.trip_id == trip.id).delete()
 
-    # Add new itinerary days
-    for day in ai_response.get("itinerary", []):
-        itinerary_day = Itinerary(
-            trip_id=trip.id,
-            day_number=day["day_number"],
-            title=day["title"],
-            activities=day.get("activities", []),
-            estimated_cost=day.get("estimated_cost", 0.0),
-        )
+    for itinerary_day in _build_itinerary_rows(trip.id, ai_response.get("itinerary", [])):
         db.add(itinerary_day)
 
-    # Add new budget breakdown
-    for item in ai_response.get("budget_breakdown", []):
-        budget_item = BudgetBreakdown(
-            trip_id=trip.id,
-            category=item["category"],
-            amount=item["amount"],
-            notes=item.get("notes", ""),
-        )
+    for budget_item in _build_budget_rows(trip.id, ai_response.get("budget_breakdown", [])):
         db.add(budget_item)
 
     db.commit()

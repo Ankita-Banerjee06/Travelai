@@ -4,9 +4,12 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.trip import TripPlanRequest, TripResponse, TripListResponse, OptimizeBudgetRequest
 from app.services import ai_service, trip_service
+from app.services.ai_service import AIServiceError
 from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/api/trips", tags=["Trips"])
+
+MAX_TRIP_DAYS = 21
 
 
 @router.post("/plan", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
@@ -16,6 +19,18 @@ def plan_trip(
     current_user: User = Depends(get_current_user),
 ):
     """Generate and save an AI-powered travel itinerary."""
+    trip_length = (trip_data.end_date - trip_data.start_date).days + 1
+    if trip_length > MAX_TRIP_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Trips longer than {MAX_TRIP_DAYS} days aren't supported yet. Please choose a shorter date range."
+        )
+    if trip_length < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date must be on or after the start date."
+        )
+
     try:
         ai_response = ai_service.generate_itinerary(
             destination=trip_data.destination,
@@ -26,10 +41,21 @@ def plan_trip(
             travelers=trip_data.travelers,
             preferences=trip_data.preferences,
         )
-    except Exception as e:
+    except AIServiceError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Our AI planner had trouble generating your itinerary. Please try again in a moment."
+        )
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI service error: {str(e)}"
+            detail="Something went wrong while generating your itinerary. Please try again."
+        )
+
+    if not ai_response.get("itinerary"):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI planner didn't return a usable itinerary. Please try again."
         )
 
     trip = trip_service.create_trip_with_itinerary(
@@ -125,10 +151,15 @@ def optimize_budget(
             current_budget=current_budget,
             optimization_goal=optimize_data.optimization_goal,
         )
-    except Exception as e:
+    except AIServiceError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Our AI planner had trouble optimizing your budget. Please try again in a moment."
+        )
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI optimization error: {str(e)}"
+            detail="Something went wrong while optimizing your budget. Please try again."
         )
 
     updated_trip = trip_service.update_trip_itinerary(db, trip, ai_response)

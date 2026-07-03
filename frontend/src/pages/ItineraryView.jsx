@@ -6,6 +6,7 @@ import { tripAPI } from '../api/client';
 import ItineraryTimeline from '../components/ItineraryTimeline';
 import BudgetChart from '../components/BudgetChart';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getDestinationImageUrl } from '../utils/destinationImage';
 import './ItineraryView.css';
 
 export default function ItineraryView() {
@@ -75,7 +76,11 @@ export default function ItineraryView() {
 
       {/* Hero Header */}
       <div className="itinerary-header">
-        <div className="itinerary-header-bg"></div>
+        <div
+          className="itinerary-header-bg cinematic-bg"
+          style={{ backgroundImage: `url(${getDestinationImageUrl(trip.destination)})` }}
+        ></div>
+        <div className="itinerary-header-scrim"></div>
         <div className="container">
           <button className="btn-icon back-btn" onClick={() => navigate('/dashboard')}>
             <ArrowLeft size={20} /> Back

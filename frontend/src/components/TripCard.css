@@ -6,6 +6,34 @@
   overflow: hidden;
 }
 
+.trip-card-photo {
+  margin: calc(var(--space-lg) * -1) calc(var(--space-lg) * -1) 0;
+  height: 150px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: var(--space-sm);
+  transition: transform var(--transition-base);
+}
+
+.trip-card:hover .trip-card-photo {
+  transform: scale(1.03);
+}
+
+.trip-card-photo-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(10, 12, 20, 0.75) 0%, rgba(10, 12, 20, 0.05) 60%);
+}
+
+.trip-card-duration {
+  position: relative;
+  z-index: 1;
+}
+
 .trip-card::before {
   content: '';
   position: absolute;

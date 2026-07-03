@@ -1,14 +1,38 @@
 .itinerary-header {
   position: relative;
-  padding: var(--space-xl) 0 var(--space-3xl);
+  padding: var(--space-3xl) 0 var(--space-3xl);
   margin-top: -1px;
+  min-height: 420px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
 }
 
 .itinerary-header-bg {
   position: absolute;
   inset: 0;
   background: var(--gradient-hero);
+  z-index: -2;
+}
+
+.itinerary-header-bg.cinematic-bg {
+  background-size: cover;
+  background-position: center;
+  animation: kenburns 20s ease-in-out infinite alternate;
+}
+
+@keyframes kenburns {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.12); }
+}
+
+.itinerary-header-scrim {
+  position: absolute;
+  inset: 0;
   z-index: -1;
+  background:
+    linear-gradient(to top, var(--color-bg-primary) 0%, rgba(10, 12, 20, 0.55) 45%, rgba(10, 12, 20, 0.3) 100%),
+    linear-gradient(to right, rgba(10, 12, 20, 0.5) 0%, rgba(10, 12, 20, 0.15) 60%);
 }
 
 .itinerary-header-bg::after {
@@ -19,6 +43,7 @@
   right: 0;
   height: 100px;
   background: linear-gradient(to top, var(--color-bg-primary), transparent);
+  z-index: 1;
 }
 
 .back-btn {

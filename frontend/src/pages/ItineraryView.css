@@ -46,6 +46,25 @@
   z-index: 1;
 }
 
+.itinerary-header-credit {
+  position: absolute;
+  bottom: var(--space-sm);
+  right: var(--space-md);
+  z-index: 2;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+  background: rgba(10, 12, 20, 0.4);
+  padding: 3px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(3px);
+  transition: color var(--transition-base);
+}
+
+.itinerary-header-credit:hover {
+  color: #fff;
+}
+
 .back-btn {
   display: inline-flex;
   align-items: center;

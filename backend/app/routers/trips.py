@@ -4,8 +4,11 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.trip import TripPlanRequest, TripResponse, TripListResponse, OptimizeBudgetRequest
 from app.services import ai_service, trip_service
-from app.services.ai_service import AIServiceError
+from app.services.ai_service import AIServiceError, AIRateLimitError
 from app.dependencies import get_current_user
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/trips", tags=["Trips"])
 
@@ -41,18 +44,29 @@ def plan_trip(
             travelers=trip_data.travelers,
             preferences=trip_data.preferences,
         )
-    except AIServiceError:
+    except AIRateLimitError as e:
+        logger.warning(f"AI rate limit hit in plan_trip (destination={trip_data.destination!r}): {e}")
+        headers = {"Retry-After": str(e.retry_after_seconds)} if e.retry_after_seconds else {}
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Our AI planner is at capacity right now. Please try again in a few minutes.",
+            headers=headers,
+        )
+    except AIServiceError as e:
+        logger.error(f"AIServiceError in plan_trip (destination={trip_data.destination!r}): {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Our AI planner had trouble generating your itinerary. Please try again in a moment."
         )
     except Exception:
+        logger.exception(f"Unexpected error in plan_trip (destination={trip_data.destination!r})")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Something went wrong while generating your itinerary. Please try again."
         )
 
     if not ai_response.get("itinerary"):
+        logger.error(f"AI planner returned no itinerary for destination={trip_data.destination!r}: {ai_response!r}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The AI planner didn't return a usable itinerary. Please try again."
@@ -151,12 +165,22 @@ def optimize_budget(
             current_budget=current_budget,
             optimization_goal=optimize_data.optimization_goal,
         )
-    except AIServiceError:
+    except AIRateLimitError as e:
+        logger.warning(f"AI rate limit hit in optimize_budget (trip_id={trip_id}): {e}")
+        headers = {"Retry-After": str(e.retry_after_seconds)} if e.retry_after_seconds else {}
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Our AI planner is at capacity right now. Please try again in a few minutes.",
+            headers=headers,
+        )
+    except AIServiceError as e:
+        logger.error(f"AIServiceError in optimize_budget (trip_id={trip_id}): {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Our AI planner had trouble optimizing your budget. Please try again in a moment."
         )
     except Exception:
+        logger.exception(f"Unexpected error in optimize_budget (trip_id={trip_id})")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Something went wrong while optimizing your budget. Please try again."

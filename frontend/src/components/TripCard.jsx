@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, Calendar, DollarSign, Users, Trash2, Eye } from 'lucide-react';
-import { getDestinationThumbUrl } from '../utils/destinationImage';
+import { useDestinationPhoto } from '../utils/destinationImage';
 import './TripCard.css';
 
 export default function TripCard({ trip, onDelete }) {
   const navigate = useNavigate();
+  const { photo, fallbackGradient } = useDestinationPhoto(trip.destination);
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -34,11 +35,26 @@ export default function TripCard({ trip, onDelete }) {
     >
       <div
         className="trip-card-photo"
-        style={{ backgroundImage: `url(${getDestinationThumbUrl(trip.destination)})` }}
+        style={{
+          backgroundImage: photo?.thumb_url
+            ? `url(${photo.thumb_url})`
+            : fallbackGradient,
+        }}
       >
         <div className="trip-card-photo-scrim"></div>
         <span className="badge badge-teal trip-card-duration">{getDuration()}</span>
       </div>
+      {photo?.photographer && (
+        <a
+          href={`${photo.photographer_url}?utm_source=travelai&utm_medium=referral`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="trip-card-photo-credit"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Photo by {photo.photographer} on Unsplash
+        </a>
+      )}
 
       <div className="trip-card-header">
         <div className="trip-destination">

@@ -1,17 +1,21 @@
 import json
 import re
+import logging
 from datetime import date
-from groq import Groq
+from groq import Groq, RateLimitError
 from app.config import get_settings
 
 settings = get_settings()
 client = Groq(api_key=settings.GROQ_API_KEY)
+logger = logging.getLogger(__name__)
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 # Max days generated per single LLM call. Keeps each response well within
-# the token budget so it never gets truncated mid-JSON.
-DAYS_PER_BATCH = 4
+# the token budget so it never gets truncated mid-JSON. Larger batches mean
+# fewer calls, which means the system prompt (re-sent every call) is
+# repeated less often -> lower total token usage per trip.
+DAYS_PER_BATCH = 7
 
 ITINERARY_SYSTEM_PROMPT = """You are an expert travel planner AI. Generate detailed day-by-day travel itineraries \
 for ANY city or country in the world, using real, well-known places, neighborhoods, and local cuisine for that \
@@ -111,6 +115,25 @@ class AIServiceError(Exception):
     pass
 
 
+class AIRateLimitError(AIServiceError):
+    """Raised when the AI provider's rate/quota limit is hit. Not retried,
+    since retrying against an exhausted daily quota just burns time."""
+    def __init__(self, message: str, retry_after_seconds: int | None = None):
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
+def _parse_retry_after(exc: Exception) -> int | None:
+    """Best-effort extraction of the retry delay Groq reports, e.g.
+    'Please try again in 29m18.24s.'"""
+    match = re.search(r'try again in (?:(\d+)m)?([\d.]+)s', str(exc))
+    if not match:
+        return None
+    minutes = int(match.group(1)) if match.group(1) else 0
+    seconds = float(match.group(2))
+    return int(minutes * 60 + seconds)
+
+
 def _strip_to_braces(text: str) -> str:
     """Trim any leading/trailing junk outside the outermost { }."""
     start = text.find("{")
@@ -203,13 +226,17 @@ def _extract_json(text: str) -> dict:
         raise ValueError(f"Could not extract valid JSON from response: {text[:300]}") from e
 
 
-def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int = 8000, retries: int = 2,
+def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int = 4000, retries: int = 2,
                 list_key: str | None = None) -> dict:
     """Call Groq with automatic retry on truncation/parse failure.
 
     Always returns a dict. If the model's JSON response is (or repairs down
     to) a bare list instead of an object, it's normalized into
     {list_key: [...]} so downstream .get() calls never crash.
+
+    Rate limit errors are NOT retried — retrying against an exhausted quota
+    just fails again and wastes time. They're raised immediately as
+    AIRateLimitError so the caller can respond appropriately (e.g. HTTP 429).
     """
     last_error = None
     for attempt in range(retries + 1):
@@ -225,7 +252,6 @@ def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int = 8000, ret
                 response_format={"type": "json_object"},
             )
             response_text = chat_completion.choices[0].message.content
-            finish_reason = chat_completion.choices[0].finish_reason
 
             try:
                 parsed = _extract_json(response_text)
@@ -242,7 +268,14 @@ def _call_groq(system_prompt: str, user_prompt: str, max_tokens: int = 8000, ret
                 continue
 
             return parsed
+
+        except RateLimitError as e:
+            logger.warning(f"Groq rate limit hit: {e}")
+            retry_after = _parse_retry_after(e)
+            raise AIRateLimitError(str(e), retry_after_seconds=retry_after) from e
+
         except Exception as e:
+            logger.warning(f"Groq call failed (attempt {attempt + 1}/{retries + 1}): {e}")
             last_error = e
             continue
 
@@ -292,7 +325,7 @@ Create a detailed itinerary for just days {batch_start_day}-{batch_end_day}, wit
 locations in {destination}. Do not repeat activities/places already typical for earlier or later days. Keep \
 daily spending roughly proportional to a {budget} {currency} total budget across all {total_days} days."""
 
-        result = _call_groq(ITINERARY_SYSTEM_PROMPT, user_prompt, max_tokens=8000, list_key="itinerary")
+        result = _call_groq(ITINERARY_SYSTEM_PROMPT, user_prompt, max_tokens=4000, list_key="itinerary")
         batch_days = result.get("itinerary", [])
         if isinstance(batch_days, list):
             all_days.extend(d for d in batch_days if isinstance(d, dict))
@@ -317,7 +350,7 @@ Day-by-day cost summary:
 Produce a budget breakdown across categories that sums close to {budget} {currency}, plus 3-5 practical tips \
 for visiting {destination}."""
 
-    budget_result = _call_groq(BUDGET_SUMMARY_SYSTEM_PROMPT, budget_prompt, max_tokens=1500, list_key="budget_breakdown")
+    budget_result = _call_groq(BUDGET_SUMMARY_SYSTEM_PROMPT, budget_prompt, max_tokens=1000, list_key="budget_breakdown")
 
     budget_breakdown = budget_result.get("budget_breakdown", [])
     tips = budget_result.get("tips", [])
@@ -356,4 +389,4 @@ Please optimize the itinerary and budget based on the goal: {optimization_goal}.
 - If "balance": Balance between budget and luxury experiences
 - If "luxury": Upgrade experiences while trying to stay within budget"""
 
-    return _call_groq(BUDGET_OPTIMIZE_PROMPT, user_prompt, max_tokens=8000, list_key="itinerary")
+    return _call_groq(BUDGET_OPTIMIZE_PROMPT, user_prompt, max_tokens=4000, list_key="itinerary")

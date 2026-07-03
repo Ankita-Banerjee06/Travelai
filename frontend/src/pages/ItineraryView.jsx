@@ -6,7 +6,7 @@ import { tripAPI } from '../api/client';
 import ItineraryTimeline from '../components/ItineraryTimeline';
 import BudgetChart from '../components/BudgetChart';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getDestinationImageUrl } from '../utils/destinationImage';
+import { useDestinationPhoto } from '../utils/destinationImage';
 import './ItineraryView.css';
 
 export default function ItineraryView() {
@@ -18,6 +18,7 @@ export default function ItineraryView() {
   const [error, setError] = useState('');
   const [optimizationGoal, setOptimizationGoal] = useState('reduce_costs');
   const [showOptimizeMenu, setShowOptimizeMenu] = useState(false);
+  const { photo, fallbackGradient } = useDestinationPhoto(trip?.destination);
 
   useEffect(() => {
     loadTrip();
@@ -78,9 +79,21 @@ export default function ItineraryView() {
       <div className="itinerary-header">
         <div
           className="itinerary-header-bg cinematic-bg"
-          style={{ backgroundImage: `url(${getDestinationImageUrl(trip.destination)})` }}
+          style={{
+            backgroundImage: photo?.url ? `url(${photo.url})` : fallbackGradient,
+          }}
         ></div>
         <div className="itinerary-header-scrim"></div>
+        {photo?.photographer && (
+          <a
+            href={`${photo.photographer_url}?utm_source=travelai&utm_medium=referral`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="itinerary-header-credit"
+          >
+            Photo by {photo.photographer} on Unsplash
+          </a>
+        )}
         <div className="container">
           <button className="btn-icon back-btn" onClick={() => navigate('/dashboard')}>
             <ArrowLeft size={20} /> Back

@@ -22,6 +22,7 @@ _ENV_FILE = next((str(p) for p in _ENV_CANDIDATES if p.exists()), str(_REPO_ROOT
 class Settings(BaseSettings):
     DATABASE_URL: str = ""
     GROQ_API_KEY: str = ""
+    UNSPLASH_ACCESS_KEY: str = ""
     JWT_SECRET: str = "change-me"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440

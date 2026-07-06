@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import Chart from 'chart.js/auto';
+import { useState } from 'react';
 import './BudgetChart.css';
 
 const CATEGORY_COLORS = {
@@ -12,62 +11,42 @@ const CATEGORY_COLORS = {
 
 const FALLBACK_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#4a3aa7', '#e87ba4', '#e34948', '#eb6834'];
 
+const SIZE = 160;
+const STROKE = 22;
+const RADIUS = (SIZE - STROKE) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const GAP_DEG = 2;
+
 export default function BudgetChart({ breakdown = {}, currency = 'USD' }) {
-  const canvasRef = useRef(null);
-  const chartRef = useRef(null);
+  const [hovered, setHovered] = useState(null);
 
-  const entries = Object.entries(breakdown);
+  const entries = Object.entries(breakdown).filter(([, val]) => Number(val) > 0);
   const total = entries.reduce((sum, [, val]) => sum + (Number(val) || 0), 0);
-  const labels = entries.map(([key]) => key);
-  const values = entries.map(([, val]) => Number(val) || 0);
-  const colors = labels.map((label, i) => CATEGORY_COLORS[label] || FALLBACK_COLORS[i % FALLBACK_COLORS.length]);
 
-  useEffect(() => {
-    if (!canvasRef.current || entries.length === 0) return;
+  if (entries.length === 0 || total === 0) return null;
 
-    if (chartRef.current) {
-      chartRef.current.destroy();
-    }
+  const colors = entries.map(([label], i) => CATEGORY_COLORS[label] || FALLBACK_COLORS[i % FALLBACK_COLORS.length]);
 
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'doughnut',
-      data: {
-        labels,
-        datasets: [{
-          data: values,
-          backgroundColor: colors,
-          borderColor: 'transparent',
-          borderWidth: 0,
-          spacing: 2,
-          hoverOffset: 4,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '72%',
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: 'rgba(17, 24, 39, 0.95)',
-            titleColor: '#f1f5f9',
-            bodyColor: '#94a3b8',
-            borderColor: 'rgba(255,255,255,0.08)',
-            borderWidth: 1,
-            padding: 10,
-            cornerRadius: 8,
-            displayColors: false,
-          },
-        },
-      },
-    });
+  let cumulativeDeg = -90;
+  const segments = entries.map(([label, value], i) => {
+    const fraction = Number(value) / total;
+    const segmentDeg = fraction * 360;
+    const startDeg = cumulativeDeg;
+    cumulativeDeg += segmentDeg;
 
-    return () => {
-      if (chartRef.current) chartRef.current.destroy();
+    const gapDeg = entries.length > 1 ? GAP_DEG : 0;
+    const visibleDeg = Math.max(segmentDeg - gapDeg, 0);
+    const dashLength = (visibleDeg / 360) * CIRCUMFERENCE;
+
+    return {
+      label,
+      value: Number(value),
+      pct: Math.round(fraction * 100),
+      color: colors[i],
+      dashArray: `${dashLength} ${CIRCUMFERENCE - dashLength}`,
+      rotation: startDeg,
     };
-  }, [breakdown]);
-
-  if (entries.length === 0) return null;
+  });
 
   return (
     <div className="budget-chart glass-card">
@@ -75,7 +54,36 @@ export default function BudgetChart({ breakdown = {}, currency = 'USD' }) {
 
       <div className="budget-chart-body">
         <div className="budget-chart-donut">
-          <canvas ref={canvasRef} role="img" aria-label={`Donut chart of budget breakdown across ${labels.length} categories, total ${currency} ${total.toFixed(0)}`}></canvas>
+          <svg
+            viewBox={`0 0 ${SIZE} ${SIZE}`}
+            width={SIZE}
+            height={SIZE}
+            role="img"
+            aria-label={`Donut chart of budget breakdown across ${entries.length} categories, total ${currency} ${total.toFixed(0)}`}
+          >
+            <title>Budget breakdown</title>
+            <desc>
+              {entries.map(([label, value]) => `${label}: ${currency} ${Number(value).toFixed(0)}`).join(', ')}
+            </desc>
+            {segments.map((seg) => (
+              <circle
+                key={seg.label}
+                cx={SIZE / 2}
+                cy={SIZE / 2}
+                r={RADIUS}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth={STROKE}
+                strokeDasharray={seg.dashArray}
+                strokeLinecap="round"
+                transform={`rotate(${seg.rotation} ${SIZE / 2} ${SIZE / 2})`}
+                opacity={hovered && hovered !== seg.label ? 0.35 : 1}
+                style={{ transition: 'opacity 150ms ease', cursor: 'pointer' }}
+                onMouseEnter={() => setHovered(seg.label)}
+                onMouseLeave={() => setHovered(null)}
+              />
+            ))}
+          </svg>
           <div className="budget-chart-center">
             <span className="budget-chart-center-label">Total</span>
             <span className="budget-chart-center-value">{currency} {total.toFixed(0)}</span>
@@ -83,20 +91,23 @@ export default function BudgetChart({ breakdown = {}, currency = 'USD' }) {
         </div>
 
         <div className="budget-chart-legend">
-          {entries.map(([label, value], i) => {
-            const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-            return (
-              <div className="budget-chart-legend-row" key={label}>
-                <span className="budget-chart-legend-label">
-                  <span className="budget-chart-swatch" style={{ background: colors[i] }}></span>
-                  {label}
-                </span>
-                <span className="budget-chart-legend-value">
-                  {currency} {Number(value).toFixed(0)} &middot; {pct}%
-                </span>
-              </div>
-            );
-          })}
+          {segments.map((seg) => (
+            <div
+              className="budget-chart-legend-row"
+              key={seg.label}
+              onMouseEnter={() => setHovered(seg.label)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ opacity: hovered && hovered !== seg.label ? 0.5 : 1, transition: 'opacity 150ms ease' }}
+            >
+              <span className="budget-chart-legend-label">
+                <span className="budget-chart-swatch" style={{ background: seg.color }}></span>
+                {seg.label}
+              </span>
+              <span className="budget-chart-legend-value">
+                {currency} {seg.value.toFixed(0)} &middot; {seg.pct}%
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

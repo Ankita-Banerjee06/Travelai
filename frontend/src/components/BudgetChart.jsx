@@ -17,10 +17,43 @@ const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const GAP_DEG = 2;
 
-export default function BudgetChart({ breakdown = {}, currency = 'USD' }) {
+// Keyword guesses for bucketing activities when the backend gives us
+// no per-category breakdown at all, only a flat list of priced activities.
+function guessCategory(activity) {
+  const text = `${activity.activity || ''} ${activity.description || ''} ${activity.location || ''}`.toLowerCase();
+  if (/hotel|hostel|resort|accommodat|stay|room|lodg/.test(text)) return 'Accommodation';
+  if (/flight|taxi|train|bus|transport|uber|car rental|ferry|airport/.test(text)) return 'Transportation';
+  if (/breakfast|lunch|dinner|restaurant|food|cafe|dining|drink|bar\b/.test(text)) return 'Food & Dining';
+  if (/shop|market|souvenir|mall|store/.test(text)) return 'Shopping & Miscellaneous';
+  return 'Activities & Entertainment';
+}
+
+// Builds a category -> total map straight from the day-by-day itinerary,
+// used whenever the backend's own budget_breakdown is missing or empty.
+function computeBreakdownFromDays(days) {
+  const totals = {};
+  (days || []).forEach((day) => {
+    (day.activities || []).forEach((act) => {
+      const cost = Number(act.estimated_cost) || 0;
+      if (cost <= 0) return;
+      const category = guessCategory(act);
+      totals[category] = (totals[category] || 0) + cost;
+    });
+  });
+  return totals;
+}
+
+function normalizeBreakdown(breakdown, days) {
+  const entries = Object.entries(breakdown || {}).filter(([, val]) => Number(val) > 0);
+  if (entries.length > 0) return Object.fromEntries(entries);
+  return computeBreakdownFromDays(days);
+}
+
+export default function BudgetChart({ breakdown, currency = 'USD', days }) {
   const [hovered, setHovered] = useState(null);
 
-  const entries = Object.entries(breakdown).filter(([, val]) => Number(val) > 0);
+  const resolved = normalizeBreakdown(breakdown, days);
+  const entries = Object.entries(resolved).filter(([, val]) => Number(val) > 0);
   const total = entries.reduce((sum, [, val]) => sum + (Number(val) || 0), 0);
 
   if (entries.length === 0 || total === 0) return null;

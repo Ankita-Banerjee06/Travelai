@@ -184,6 +184,7 @@ export default function ItineraryView() {
           {/* Right Column: Budget & Stats */}
           <div className="itinerary-sidebar">
             <div className="sticky-sidebar">
+              {console.log('BUDGET DATA:', trip.budget_breakdown)}
               <BudgetChart breakdown={trip.budget_breakdown} currency={trip.currency} />
               
               <motion.div 

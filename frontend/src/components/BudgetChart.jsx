@@ -1,91 +1,104 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
+import Chart from 'chart.js/auto';
 import './BudgetChart.css';
 
-const COLORS = ['#06b6d4', '#8b5cf6', '#f97316', '#10b981', '#f43f5e', '#f59e0b', '#6366f1'];
-
-const CustomTooltip = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0];
-    return (
-      <div className="budget-tooltip">
-        <p className="tooltip-label">{data.name}</p>
-        <p className="tooltip-value">${data.value.toLocaleString()}</p>
-        {data.payload.notes && (
-          <p className="tooltip-notes">{data.payload.notes}</p>
-        )}
-      </div>
-    );
-  }
-  return null;
+const CATEGORY_COLORS = {
+  'Accommodation': '#2a78d6',
+  'Food & Dining': '#1baf7a',
+  'Transportation': '#eda100',
+  'Activities & Entertainment': '#4a3aa7',
+  'Shopping & Miscellaneous': '#e87ba4',
 };
 
-export default function BudgetChart({ breakdown, currency = 'USD' }) {
-  if (!breakdown || breakdown.length === 0) return null;
+const FALLBACK_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#4a3aa7', '#e87ba4', '#e34948', '#eb6834'];
 
-  const data = breakdown.map((item) => ({
-    name: item.category,
-    value: item.amount,
-    notes: item.notes,
-  }));
+export default function BudgetChart({ breakdown = {}, currency = 'USD' }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
 
-  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const entries = Object.entries(breakdown);
+  const total = entries.reduce((sum, [, val]) => sum + (Number(val) || 0), 0);
+  const labels = entries.map(([key]) => key);
+  const values = entries.map(([, val]) => Number(val) || 0);
+  const colors = labels.map((label, i) => CATEGORY_COLORS[label] || FALLBACK_COLORS[i % FALLBACK_COLORS.length]);
+
+  useEffect(() => {
+    if (!canvasRef.current || entries.length === 0) return;
+
+    if (chartRef.current) {
+      chartRef.current.destroy();
+    }
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors,
+          borderColor: 'transparent',
+          borderWidth: 0,
+          spacing: 2,
+          hoverOffset: 4,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            titleColor: '#f1f5f9',
+            bodyColor: '#94a3b8',
+            borderColor: 'rgba(255,255,255,0.08)',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
+            displayColors: false,
+          },
+        },
+      },
+    });
+
+    return () => {
+      if (chartRef.current) chartRef.current.destroy();
+    };
+  }, [breakdown]);
+
+  if (entries.length === 0) return null;
 
   return (
-    <motion.div
-      className="budget-chart-container glass-card"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
-    >
-      <h3 className="budget-chart-title">Budget Breakdown</h3>
+    <div className="budget-chart glass-card">
+      <p className="budget-chart-title">Budget breakdown</p>
 
-      <div className="budget-chart-wrapper">
-        <div className="budget-chart">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={70}
-                outerRadius={110}
-                paddingAngle={3}
-                dataKey="value"
-                stroke="none"
-              >
-                {data.map((_, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                    style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
+      <div className="budget-chart-body">
+        <div className="budget-chart-donut">
+          <canvas ref={canvasRef} role="img" aria-label={`Donut chart of budget breakdown across ${labels.length} categories, total ${currency} ${total.toFixed(0)}`}></canvas>
           <div className="budget-chart-center">
-            <span className="budget-total-label">Total</span>
-            <span className="budget-total-value">
-              {currency} {total.toLocaleString()}
-            </span>
+            <span className="budget-chart-center-label">Total</span>
+            <span className="budget-chart-center-value">{currency} {total.toFixed(0)}</span>
           </div>
         </div>
 
-        <div className="budget-legend">
-          {data.map((item, index) => (
-            <div key={item.name} className="budget-legend-item">
-              <div className="legend-color" style={{ background: COLORS[index % COLORS.length] }}></div>
-              <div className="legend-info">
-                <span className="legend-name">{item.name}</span>
-                <span className="legend-value">{currency} {item.value.toLocaleString()}</span>
+        <div className="budget-chart-legend">
+          {entries.map(([label, value], i) => {
+            const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+            return (
+              <div className="budget-chart-legend-row" key={label}>
+                <span className="budget-chart-legend-label">
+                  <span className="budget-chart-swatch" style={{ background: colors[i] }}></span>
+                  {label}
+                </span>
+                <span className="budget-chart-legend-value">
+                  {currency} {Number(value).toFixed(0)} &middot; {pct}%
+                </span>
               </div>
-              <span className="legend-percent">{((item.value / total) * 100).toFixed(0)}%</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

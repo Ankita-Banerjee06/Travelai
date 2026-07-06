@@ -1,13 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Calendar, Users, Wand2, Share, ArrowLeft, Download } from 'lucide-react';
+import { MapPin, Calendar, Users, Wand2, Share, ArrowLeft, Download, Info } from 'lucide-react';
 import { tripAPI } from '../api/client';
 import ItineraryTimeline from '../components/ItineraryTimeline';
 import BudgetChart from '../components/BudgetChart';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useDestinationPhoto } from '../utils/destinationImage';
 import './ItineraryView.css';
+
+const CURRENCY_SYMBOLS = { USD: '$', EUR: '€', GBP: '£', JPY: '¥', AUD: '$', INR: '₹' };
+
+// Sums the real activity costs across every day, the same way
+// ItineraryTimeline does per-day, so the feasibility check below reflects
+// what the traveler will actually see/spend rather than a possibly-stale
+// AI-reported day/trip total.
+function getTripActualTotal(days) {
+  return (days || []).reduce((tripSum, day) => {
+    const activities = day.activities || [];
+    const dayTotal = activities.reduce((sum, act) => sum + (Number(act.estimated_cost) || 0), 0);
+    return tripSum + dayTotal;
+  }, 0);
+}
 
 export default function ItineraryView() {
   const { id } = useParams();
@@ -71,6 +85,12 @@ export default function ItineraryView() {
 
   if (!trip) return null;
 
+  const symbol = CURRENCY_SYMBOLS[trip.currency] || '$';
+  const actualTotal = getTripActualTotal(trip.itinerary_days);
+  const overage = actualTotal - trip.budget;
+  const isOverBudget = trip.budget > 0 && overage > 0;
+  const overagePercent = isOverBudget ? Math.round((overage / trip.budget) * 100) : 0;
+
   return (
     <>
       {optimizing && <LoadingSpinner message="AI is optimizing your budget..." />}
@@ -128,6 +148,23 @@ export default function ItineraryView() {
       </div>
 
       <div className="container page itinerary-content">
+
+        {isOverBudget && (
+          <motion.div
+            className="alert alert-info mb-lg"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Info size={20} style={{ flexShrink: 0 }} />
+            <span>
+              This itinerary comes to <strong>{symbol}{actualTotal.toFixed(2)}</strong>, which is{' '}
+              <strong>{symbol}{overage.toFixed(2)} ({overagePercent}%)</strong> over your {symbol}{trip.budget.toFixed(2)} budget.
+              Try the AI Budget Optimizer below, adjust your budget, or shorten the trip to bring costs in line.
+            </span>
+          </motion.div>
+        )}
+
         <div className="itinerary-grid">
           
           {/* Left Column: Itinerary */}
@@ -141,7 +178,7 @@ export default function ItineraryView() {
               </div>
             </div>
             
-            <ItineraryTimeline days={trip.itinerary_days} />
+            <ItineraryTimeline days={trip.itinerary_days} currency={trip.currency} />
           </div>
 
           {/* Right Column: Budget & Stats */}

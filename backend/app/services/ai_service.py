@@ -46,11 +46,20 @@ The JSON must follow this exact structure:
 Rules:
 - Each day should have 4-6 activities spread throughout the day (morning, afternoon, evening)
 - Activity times should be realistic and in chronological order
-- Estimated costs should be realistic for the destination's local cost of living
+- COST ACCURACY IS CRITICAL, for EVERY destination (not just well-known ones): estimated_cost must reflect the \
+ACTUAL real-world price of that specific place/activity, in that specific destination, in the specified \
+currency — never a number that's merely scaled to fit the traveler's stated budget. Think about what this type \
+of place/activity genuinely costs locally: a sit-down restaurant meal, a museum entry fee, a taxi ride, a hotel \
+night, etc. all have realistic price ranges that vary by country and city tier (capital vs. small town, tourist \
+hub vs. local area) — apply that real-world judgment for whichever destination you're given, every time. If \
+accurately-priced activities don't add up to the traveler's stated budget, that's fine and expected — a realistic \
+total (whether over or under budget) is more useful to the traveler than an artificially adjusted one. Do not \
+deflate or inflate costs just to make the daily/trip total match the budget number.
 - Use real, specific places (named streets, landmarks, restaurants, markets) appropriate to the destination
 - Include a mix of popular attractions and hidden gems
 - Consider the traveler preferences provided
-- All costs should be plain numbers in the specified currency
+- All costs should be plain numbers in the specified currency, reflecting genuine local prices in that currency \
+for that destination (never a USD-equivalent number simply relabeled with a different currency symbol)
 - Keep descriptions concise (one short sentence) so the response stays compact
 - Respond with ONLY the JSON object above — no other keys, no extra text"""
 
@@ -71,7 +80,8 @@ The JSON must follow this exact structure:
   "tips": ["Useful travel tip 1", "Useful travel tip 2", "Useful travel tip 3"]
 }
 
-The sum of all "amount" values should be close to (but not exceed) the total budget provided."""
+Base the breakdown on genuine local costs for this destination, using the itinerary's actual (real-world) \
+day-by-day costs as your foundation rather than forcing the total to match the traveler's stated budget."""
 
 BUDGET_OPTIMIZE_PROMPT = """You are a budget optimization expert for travel planning.
 Given an existing travel itinerary and budget, optimize the budget based on the optimization goal.
@@ -107,7 +117,10 @@ The JSON must follow this exact structure:
     "Specific tip for saving money"
   ],
   "total_savings": 150.00
-}"""
+}
+
+All costs in the optimized itinerary must still reflect genuine, real-world local prices for this destination —
+"reduce_costs" means swapping in cheaper real places/options, not just writing smaller numbers for the same ones."""
 
 
 class AIServiceError(Exception):
@@ -322,8 +335,11 @@ def generate_itinerary(
 - Preferences: {preferences_str}
 
 Create a detailed itinerary for just days {batch_start_day}-{batch_end_day}, with activities, costs, and real \
-locations in {destination}. Do not repeat activities/places already typical for earlier or later days. Keep \
-daily spending roughly proportional to a {budget} {currency} total budget across all {total_days} days."""
+locations in {destination}. Do not repeat activities/places already typical for earlier or later days. Every \
+estimated_cost must be a REAL, ACCURATE local price for {destination} specifically, in {currency} — base it on \
+what that type of place/activity genuinely costs in {destination}'s local market, not on making the total match \
+the stated budget. The traveler's budget of {budget} {currency} is context, not a constraint to force the \
+numbers into — it's fine if realistic pricing ends up above or below it."""
 
         result = _call_groq(ITINERARY_SYSTEM_PROMPT, user_prompt, max_tokens=4000, list_key="itinerary")
         batch_days = result.get("itinerary", [])
@@ -347,8 +363,9 @@ Preferences: {preferences_str}
 Day-by-day cost summary:
 {json.dumps(compact_summary, indent=2)}
 
-Produce a budget breakdown across categories that sums close to {budget} {currency}, plus 3-5 practical tips \
-for visiting {destination}."""
+Produce a budget breakdown across categories using genuine local prices for {destination}, plus 3-5 practical \
+tips for visiting {destination}. Base the breakdown on the day-by-day costs above rather than forcing the total \
+to equal {budget} {currency} exactly."""
 
     budget_result = _call_groq(BUDGET_SUMMARY_SYSTEM_PROMPT, budget_prompt, max_tokens=1000, list_key="budget_breakdown")
 
@@ -384,9 +401,11 @@ Current Itinerary:
 Current Budget Breakdown:
 {json.dumps(current_budget, indent=2)}
 
-Please optimize the itinerary and budget based on the goal: {optimization_goal}.
-- If "reduce_costs": Find cheaper alternatives while maintaining quality experiences
-- If "balance": Balance between budget and luxury experiences
-- If "luxury": Upgrade experiences while trying to stay within budget"""
+Please optimize the itinerary and budget based on the goal: {optimization_goal}. Keep every cost a REAL, \
+ACCURATE local price for {destination} in {currency} — never an artificially adjusted number.
+- If "reduce_costs": Find genuinely cheaper real alternatives (e.g. street food instead of a sit-down restaurant,
+  public transit instead of taxis) while maintaining quality experiences
+- If "balance": Balance between budget and luxury experiences using real prices for both tiers
+- If "luxury": Upgrade to real higher-end experiences and price them accurately, even if that exceeds the budget"""
 
     return _call_groq(BUDGET_OPTIMIZE_PROMPT, user_prompt, max_tokens=4000, list_key="itinerary")

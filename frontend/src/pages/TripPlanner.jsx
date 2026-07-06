@@ -200,6 +200,7 @@ export default function TripPlanner() {
             <option value="GBP">GBP (£)</option>
             <option value="JPY">JPY (¥)</option>
             <option value="AUD">AUD ($)</option>
+            <option value="INR">INR (₹)</option>
           </select>
         </div>
       </div>

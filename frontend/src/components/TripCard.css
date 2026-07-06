@@ -16,22 +16,7 @@
   align-items: flex-end;
   justify-content: flex-end;
   padding: var(--space-sm);
-  transition: transform var(--transition-base), background-image 0.4s ease;
-}
-
-.trip-card-photo-credit {
-  display: block;
-  margin-top: -6px;
-  margin-bottom: 2px;
-  font-size: 0.65rem;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  opacity: 0.7;
-  transition: opacity var(--transition-base);
-}
-
-.trip-card-photo-credit:hover {
-  opacity: 1;
+  transition: transform var(--transition-base);
 }
 
 .trip-card:hover .trip-card-photo {

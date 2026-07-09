@@ -447,6 +447,17 @@ select.form-input option {
   color: var(--color-amber);
 }
 
+.alert-info {
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--color-text-secondary);
+}
+
+.alert-info strong,
+.alert-info b {
+  color: var(--color-text-primary);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .grid-2, .grid-3 {
